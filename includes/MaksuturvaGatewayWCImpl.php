@@ -3,13 +3,13 @@
  * Maksuturva Payment Gateway Plugin for WooCommerce 2.x
  * Plugin developed for Maksuturva
  * Last update: 06/03/2015
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  * [GNU LGPL v. 2.1 @gnu.org] (https://www.gnu.org/licenses/lgpl-2.1.html)
- * 
+ *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
@@ -17,7 +17,7 @@
  */
 
 
-if ( ! defined( 'ABSPATH' ) ) { 
+if ( ! defined( 'ABSPATH' ) ) {
     exit; // Exit if accessed directly
 }
 
@@ -48,20 +48,20 @@ class MaksuturvaGatewayWCImpl extends MaksuturvaGatewayAbstract
 		$item_tax_rates = array();
 		$compound_tax_rates = 0;
 		$regular_tax_rates = 0;
-		
+
 		if ( empty( $tax_rates[ $product->get_tax_class() ] )) {
 			$tax_rates[ $product->get_tax_class() ] = WC_Tax::get_rates($product->get_tax_class());
 		}
-		
+
 		$item_tax_rates = $tax_rates[ $product->get_tax_class() ];
 		$regular_tax_rates = $compound_tax_rates = 0;
-        
+
         foreach ( $item_tax_rates as $key => $rate )
             if ( $rate['compound'] == 'yes' )
                 $compound_tax_rates = $compound_tax_rates + $rate['rate'];
             else
                 $regular_tax_rates  = $regular_tax_rates + $rate['rate'];
- 
+
         $regular_tax_rate   = 1 + ( $regular_tax_rates / 100 );
         $compound_tax_rate  = 1 + ( $compound_tax_rates / 100 );
         $the_rate = 0;
@@ -69,9 +69,9 @@ class MaksuturvaGatewayWCImpl extends MaksuturvaGatewayAbstract
  		foreach ( $item_tax_rates as $key => $rate ) {
             if ( ! isset( $taxes[ $key ] ) )
                  $taxes[ $key ] = 0;
- 
+
             $the_rate      = $rate['rate']; // 100;
- 
+
             if ( $rate['compound'] == 'yes' ) {
                  //$the_price = $price;
             //    $the_rate  = $the_rate / $compound_tax_rate;
@@ -83,7 +83,7 @@ class MaksuturvaGatewayWCImpl extends MaksuturvaGatewayAbstract
         return $the_rate;
 	}
 
-	function __construct($plugin, $order, $cart = null) 
+	function __construct($plugin, $order, $cart = null)
 	{
 		global $woocommerce;
 		$secretKey = $plugin->maksuturva_secretkey;
@@ -93,38 +93,43 @@ class MaksuturvaGatewayWCImpl extends MaksuturvaGatewayAbstract
 		$pid = self::getMaksuturvaId($order->id);
 
 		$products_rows = array();
-		
+
 		$discount_total = 0;
   		$product_total = 0;
 		$shipping_total = 0;
-		
+
 		foreach ( $order->get_items() as $order_item_id => $item ) {
 			$product = $order->get_product_from_item($item);
 
 			$desc = ''; //$product->post->post_excerpt; // $product->get_title();
-			
-			$woi = new WC_Order_Item_Meta($order->get_item_meta($order_item_id, ''));
-          	$gf = $woi->get_formatted();
-          	  	
+
+			if ( defined( 'WOOCOMMERCE_VERSION' ) && version_compare( WOOCOMMERCE_VERSION, '2.4', '>' ) ) {
+        $woi = new WC_Order_Item_Meta($item);
+      } else {
+        $woi = new WC_Order_Item_Meta($order->get_item_meta($order_item_id, ''));
+
+      }
+			$gf = $woi->get_formatted();
+
 			if ( $gf ) {
 				foreach($gf as $attr) {
-          	  		$desc .= implode('=', $attr).'|';
+          $desc .= implode('=', $attr).'|';
 				}
 			}
-          
+
 			$item_price_with_tax = $order->get_item_subtotal($item, true);
 			$item_totalprice_with_tax = $order->get_item_total($item, true);
-			
+
 
 			$discount_pct =  ($item_price_with_tax - $item_totalprice_with_tax) / $item_price_with_tax *100.0;  //( $line_price_with_tax - $line_totalprice_with_tax); //)) / $line_price_with_tax*100;
-			
+
 			if ($product->product_type == 'variable') {
 				$desc .= implode(',',$product->get_variation_attributes( )). ' ';
 			}
-			$desc .= ($product->post->post_excerpt); //apply_filters( 'woocommerce_short_description', $product->post->post_excerpt)); 
+			$desc .= ($product->post->post_excerpt); //apply_filters( 'woocommerce_short_description', $product->post->post_excerpt));
 			//$product_total = $product_total + $item_totalprice_with_tax;
 			//$discount_total = $discount_total - $line_price_with_tax - $item_totalprice_with_tax;
-			
+
 			$encoding = get_bloginfo('charset');
 			//if($plugin->debug) {
 			//	$plugin->log->add($plugin->id, $encoding.' Item total price='.$item_totalprice_with_tax." subtotal=".$item_price_with_tax." discount-%=".$discount_pct.":".$desc);
@@ -146,7 +151,7 @@ class MaksuturvaGatewayWCImpl extends MaksuturvaGatewayAbstract
             	'pmt_row_discountpercentage' => str_replace('.', ',', sprintf("%.2f", $discount_pct)),                                                    //alphanumeric        max lenght 5         min lenght 4         n,nn
             	'pmt_row_type' => 1,
 			);
-			
+
 			array_push($products_rows, $row);
 		}
 
@@ -167,7 +172,7 @@ class MaksuturvaGatewayWCImpl extends MaksuturvaGatewayAbstract
 				if ($excerpt) {
 					$coupon_desc .= ' ' . $excerpt;
 				}
-			
+
 
 				$row = array(
 				    'pmt_row_name' => __( 'Discount', $plugin->td ),
@@ -223,11 +228,11 @@ class MaksuturvaGatewayWCImpl extends MaksuturvaGatewayAbstract
 			$sessionid = $woocommerce->session->id;
 
 			$returnURL = add_query_arg('sessionid', $sessionid, $plugin->notify_url); //get_return_url( $order ));
-			$returnURL = add_query_arg('orderid', $id, $returnURL);	
+			$returnURL = add_query_arg('orderid', $id, $returnURL);
 		}
 		//$returnURL = add_query_arg('gateway', 'wc_maksurva_emaksut', $returnURL);
 		$billing_email = $order->billing_email;
-		
+
 		$billing_phone = $order->billing_phone;
 
 		if ( ! empty( $order->customer_user ) ) {
@@ -252,7 +257,7 @@ class MaksuturvaGatewayWCImpl extends MaksuturvaGatewayAbstract
 	    		$locale = "en_FI";
 	    	}
 	    }
-	    
+
 	    $options = array(
 			"pmt_keygeneration" => $plugin->maksuturva_keyversion,
 			"pmt_id" 		=> $id,
@@ -261,13 +266,13 @@ class MaksuturvaGatewayWCImpl extends MaksuturvaGatewayAbstract
 			"pmt_sellerid" 	=> $sellerId,
 			"pmt_duedate" 	=> $dueDate,
 			"pmt_userlocale" => $locale,
-			"pmt_okreturn"	=> add_query_arg('pmt_act', 'ok', $returnURL), 
-			"pmt_errorreturn"	=> add_query_arg('pmt_act', 'error', $returnURL), 
-			"pmt_cancelreturn"	=> add_query_arg('pmt_act', 'cancel', $returnURL), 
+			"pmt_okreturn"	=> add_query_arg('pmt_act', 'ok', $returnURL),
+			"pmt_errorreturn"	=> add_query_arg('pmt_act', 'error', $returnURL),
+			"pmt_cancelreturn"	=> add_query_arg('pmt_act', 'cancel', $returnURL),
 
 			//Tiilisiirtoa ei tueta enää nykyisissä valmispaketeissa. Siksi usein ehdotammekin
 			//käytettävän viivästetty maksupaluuosoitteeseena samaa osoitetta kuin peruutusten tapauksessa (pmt_delayedpayreturn ~= pmt_cancelreturn).
-			"pmt_delayedpayreturn"	=> add_query_arg('pmt_act', 'delay', $returnURL), 
+			"pmt_delayedpayreturn"	=> add_query_arg('pmt_act', 'delay', $returnURL),
 			"pmt_amount" 		=> str_replace('.', ',', sprintf("%.2f",  $order->get_total() - $shipping_cost )),
 
 			// Delivery information
@@ -276,7 +281,7 @@ class MaksuturvaGatewayWCImpl extends MaksuturvaGatewayAbstract
 			"pmt_deliverypostalcode" => trim($this->clean($order -> shipping_postcode, '000')),
 			"pmt_deliverycity" => trim($this->clean($order -> shipping_city)),
 			"pmt_deliverycountry" => trim($this->clean($order -> shipping_country)),
-		    		    
+
 			// Customer Information
 		    "pmt_buyername" 	=> trim($order -> billing_first_name .' '. $order -> billing_last_name),
 		   	"pmt_buyeraddress" => trim($this->clean($order -> billing_address_1. "  ". $order -> billing_address_2)),
@@ -289,24 +294,24 @@ class MaksuturvaGatewayWCImpl extends MaksuturvaGatewayAbstract
 			// emaksut
 			"pmt_escrow" => ($plugin->maksuturva_emaksut == "no" ? "Y" : "N"),
 
-			
+
 			"pmt_sellercosts" => str_replace('.', ',', sprintf("%.2f", $shipping_cost)),
 
 		    "pmt_rows" => count($products_rows),
 		    "pmt_rows_data" => $products_rows,
 
 		);
-		parent::__construct($secretKey, $options, $plugin->maksuturva_encoding, $plugin->maksuturva_url);		
+		parent::__construct($secretKey, $options, $plugin->maksuturva_encoding, $plugin->maksuturva_url);
 
 	}
 
-	static public function getMaksuturvaId($order_id){ 
+	static public function getMaksuturvaId($order_id){
 		return intval($order_id) + 100;
 	}
 	static public function getOrderId($maksuturva_id){
 		return intval($maksuturva_id) - 100;
 	}
-	
+
     public function calcPmtReferenceCheckNumber()
     {
         return $this->getPmtReferenceNumber($this->_formData['pmt_reference']);
@@ -321,7 +326,7 @@ class MaksuturvaGatewayWCImpl extends MaksuturvaGatewayAbstract
     {
         return $this->_hashAlgoDefined;
     }
-    
+
 	private function clean($var, $def='EMPTY'){
 		return ($var ? $var : $def);
 	}

@@ -3,13 +3,13 @@
  * Maksuturva Payment Gateway Plugin for WooCommerce 2.x
  * Plugin developed for Maksuturva
  * Last update: 06/03/2015
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  * [GNU LGPL v. 2.1 @gnu.org] (https://www.gnu.org/licenses/lgpl-2.1.html)
- * 
+ *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
@@ -59,7 +59,7 @@ abstract class MaksuturvaGatewayAbstract
 	const STATUS_QUERY_PAYER_CANCELLED_PARTIAL_RETURN	= "93";
 	const STATUS_QUERY_PAYER_RECLAMATION 				= "95";
 	const STATUS_QUERY_CANCELLED 						= "99";
-	
+
 	const EXCEPTION_CODE_ALGORITHMS_NOT_SUPORTED          = '00';
 	const EXCEPTION_CODE_URL_GENERATION_ERRORS            = '01';
 	const EXCEPTION_CODE_FIELD_ARRAY_GENERATION_ERRORS    = '02';
@@ -210,9 +210,9 @@ abstract class MaksuturvaGatewayAbstract
      * @var array
      */
     private $_originalFormData = array();
-    
+
     private $_fieldLength = array(
-    	// min, max, required 
+    	// min, max, required
     	'pmt_action'	=> array(4, 50),
         'pmt_version' 	=> array(4, 4),
     	'pmt_sellerid' 	=> array(1, 15),
@@ -248,7 +248,7 @@ abstract class MaksuturvaGatewayAbstract
 		'pmt_sellercosts'	=> array(4, 17),
     	'pmt_rows'	=> array(1, 4),
     	'pmt_row_name'	=> array(1, 40),
-    	'pmt_row_desc'	=> array(1, 1000), 
+    	'pmt_row_desc'	=> array(1, 1000),
     	'pmt_row_quantity'	=> array(1, 8),
     	'pmt_row_deliverydate'	=> array(10, 10),
     	'pmt_row_price_gross'	=> array(4, 17),
@@ -265,20 +265,20 @@ abstract class MaksuturvaGatewayAbstract
     protected function dataIsValid()
     {
         $isvalid = true;
-		
+
 		$DELIVERY_FIELDS = array(
 			'pmt_deliveryname' => 'pmt_buyername' ,
 			'pmt_deliveryaddress' => 'pmt_buyeraddress' ,
-			'pmt_deliverypostalcode' => 'pmt_buyerpostalcode' , 
-			'pmt_deliverycity' => 'pmt_buyercity' , 
+			'pmt_deliverypostalcode' => 'pmt_buyerpostalcode' ,
+			'pmt_deliverycity' => 'pmt_buyercity' ,
 			'pmt_deliverycountry' => 'pmt_buyercountry'
 		);
-		
+
 		foreach ($DELIVERY_FIELDS as $dfield => $bfield){
 			if  ( (! isset($this->_formData[$dfield])) || mb_strlen(trim($this->_formData[$dfield])) == 0  || $this->_formData[$dfield] == NULL)
 				$this->_formData[$dfield] = $this->_formData[$bfield];
 		}
-		
+
         foreach ($this->_compulsoryData as $compulsoryData) {
             if (array_key_exists($compulsoryData, $this->_formData)) {
                 switch ($compulsoryData) {
@@ -357,7 +357,7 @@ abstract class MaksuturvaGatewayAbstract
             $this->_charset = $encoding;
             $this->_charsethttp = $encoding;
         }
-        
+
         $this->_secretKey                           = $secretKey;
         $this->_baseUrl                             = self::getPaymentUrl($url);
         $this->_statusQueryBaseUrl                  = self::getStatusQueryUrl($url);
@@ -368,7 +368,7 @@ abstract class MaksuturvaGatewayAbstract
         $this->_formData['pmt_keygeneration']       = '001';
         $this->_formData['pmt_currency']            = 'EUR';
         $this->_formData['pmt_escrowchangeallowed'] = 'N';
-        
+
     	$this->_formData['pmt_charset']             = $this->_charset;
     	$this->_formData['pmt_charsethttp']         = $this->_charsethttp;
 
@@ -378,7 +378,7 @@ abstract class MaksuturvaGatewayAbstract
         // Force to cut off all amps and merge in current array_data
         foreach ($data as $key => $value ){
             if ($key == 'pmt_rows_data') {
-                $rows = array(); 
+                $rows = array();
                 foreach ($value as $k => $v){
                     $rows[$k] = str_replace('&amp;', '', $v);
                 }
@@ -479,21 +479,21 @@ abstract class MaksuturvaGatewayAbstract
                 case 'pmt_paymentmethod':
                 case 'pmt_buyeridentificationcode':
                     if (in_array($hashData, $this->_formData)) {
-                        $hashString .= $this->_formData[$hashData] . '&';
+                        $hashString .= $this->convert_encoding($this->_formData[$hashData], $this->_charset) . '&';
                     }
                     break;
                 default:
-                    $hashString .= $this->_formData[$hashData] . '&';
+                    $hashString .= $this->convert_encoding($this->_formData[$hashData], $this->_charset) . '&';
             }
         }
 
         foreach ($this->_formData['pmt_rows_data'] as $order) {
             foreach ($order as $data) {
-                $hashString .= $data . '&';
+                $hashString .= $this->convert_encoding($data, $this->_charset). '&';
             }
         }
 
-        $hashString .= $this->_secretKey . '&';
+        $hashString .= $this->convert_encoding($this->_secretKey, $this->_charset) . '&';
 
         return hash($this->_hashAlgoDefined, $hashString);
     }
@@ -635,7 +635,7 @@ abstract class MaksuturvaGatewayAbstract
 
     	// overrides with user-defined fields
     	$this->_statusQueryData = array_merge($defaultFields, $data);
-        
+
         // hash calculation
     	$hashFields = array(
     		"pmtq_action",
@@ -765,7 +765,7 @@ abstract class MaksuturvaGatewayAbstract
     {
         return mb_convert_encoding($string_input, $encoding);
     }
-    
+
     /**
      * Calculate the payment url base on the admin module configuration
      * of the base url
@@ -776,7 +776,7 @@ abstract class MaksuturvaGatewayAbstract
     {
         return $baseUrl . '/NewPaymentExtended.pmt';
     }
-    
+
 	/**
      * Calculate the status query url base on the admin module configuration
      * of the base url
@@ -787,7 +787,7 @@ abstract class MaksuturvaGatewayAbstract
     {
         return $baseUrl . '/PaymentStatusQuery.pmt';
     }
-    
+
     /**
      * Given the private var $_fieldLength, parses all the fields,
      * 	trimming them as needed. If a required field is missing or with length below
@@ -801,7 +801,7 @@ abstract class MaksuturvaGatewayAbstract
     		$originalData[$key] = $data;
     	}
     	$this->_originalFormData = $originalData;
-    	
+
     	$changes = FALSE;
     	foreach ($this->_formData as $key => $data) {
     		// mandatory
@@ -830,7 +830,7 @@ abstract class MaksuturvaGatewayAbstract
     			continue;
     		}
     	}
-    	
+
     	// now, the product rows
     	foreach ($this->_formData["pmt_rows_data"] as $i => $product) {
 		// Putting desc or title to not be blank
@@ -840,7 +840,7 @@ abstract class MaksuturvaGatewayAbstract
 			} else if (!trim($product['pmt_row_desc'])){
 				$this->_formData["pmt_rows_data"][$i]['pmt_row_desc'] = $product['pmt_row_desc'] = $product['pmt_row_name'];
 			}
-			
+
 		}
 
     		foreach ($product as $key => $data) {
@@ -871,7 +871,7 @@ abstract class MaksuturvaGatewayAbstract
 	    		}
     		}
     	}
-    	
+
     	return $changes;
     }
 }
